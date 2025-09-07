@@ -1,18 +1,15 @@
 package Vigil::Prime;
 
 use 5.010;
-use Carp qw(cluck confess);
+use Carp qw(carp confess cluck);
 use constant MAX_SEED => 9223372036854775807;
-our $VERSION = '1.00';
-
+our $VERSION = '1.1.0';
 
 sub new {
     my ($class, $start, $end, %opts) = @_;
     confess "Seed cannot be negative" if defined $start && $start < 0;
-	
-	my $max_seed = 9223372036854775807;
-	
-    if( ($start >= $max_seed) || ( defined $end && $end >= $max_seed) ) {
+
+    if( ($start >= MAX_SEED) || ( defined $end && $end >= MAX_SEED) ) {
 		confess "Either the seed or the max limit value exceeds the maximum value for an integer. The object was not created.";
 	}
 	
@@ -48,8 +45,9 @@ sub new {
         _seed => $start, 
 		_sieve_limit => $end,
 		_bitpacked_sieve => '',
-		_max_seed => $max_seed,
         _bitpacked_sieve_list => [],
+        _range_from => undef,
+        _range_to => undef,
     };
     bless $self, $class;
 
@@ -61,7 +59,7 @@ sub new {
 sub seed { 
     my ($self, $value) = @_;
     if (defined $value) {
-		$value = $self->{_max_seed} if $value > $self->{_max_seed}; #Cap max seed to 2^63 - 1
+		$value = MAX_SEED if $value > MAX_SEED; #Cap max seed to 2^63 - 1
         #$self->{_seed} = $value >= 2 ? $value : 2;  # enforce minimum seed 2
         $self->{_seed} = $value < 0 ? 0 : $value;  # enforce minimum seed 0
     }
@@ -77,10 +75,21 @@ sub sieve_list {
 sub range {
     my ($self, $num_from, $num_to) = @_;
 
+	#Set minimums
+	$num_from = 2 if $num_from < 2;
+	$num_to = 3 if $num_to < 3;
+
+	#If the second number is lower than the first number
+	($num_from, $num_to) = ($num_to, $num_from) if $num_to < $num_from;
+
     # Validate range
-    die "Range start and end are equal; no primes to find." if $num_from == $num_to;
-    $num_from = 2 if $num_from < 2;
-    return () if $num_to < 2 || $num_to < $num_from;
+	if ($num_from == $num_to) {
+		carp "Range start and end are equal.";
+		return $self->_is_prime($num_from) ? ($num_from) : ();
+	}
+
+	$self->{_range_from} = $num_from;
+	$self->{_range_to}   = $num_to;
 
     my @primes;
 
@@ -127,6 +136,10 @@ sub range {
     return wantarray ? @primes : scalar @primes;
 }
 
+sub range_from { return $_[0]->{_range_from}; }
+
+sub range_to { return $_[0]->{_range_to}; }
+
 sub next {
     my $self = shift;
 
@@ -154,7 +167,7 @@ sub next {
     $candidate = 2 if $candidate < 2;
     $candidate++ if $candidate > 2 && $candidate % 2 == 0;
 
-    while ($candidate <= $self->{_max_seed}) {
+    while ($candidate <= MAX_SEED) {
         if ($self->_slow_is_prime($candidate)) {
             $self->{_seed} = $candidate + 1;
             return $candidate;
@@ -357,6 +370,14 @@ Returns a copy of the internally cached sieve as an array of primes.
 =item C<my @range = $obj-E<gt>range($from, $to);>
 
 Returns all primes between $from and $to (inclusive). Uses the cached sieve when possible, falls back to slow primality checks otherwise. Returns an array in list context or a count in scalar context.
+
+=item C<$obj-E<gt>range_from;>
+
+Returns the low value used to calculate the last call to C<range()>.
+
+=item C<$obj-E<gt>range_to;>
+
+Returns the high value used to calculate the last call to C<range()>.
 
 =item C<$obj-E<gt>seed($value)> or C<my $current_seed = $obj-E<gt>seed;>
 

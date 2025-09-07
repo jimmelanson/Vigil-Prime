@@ -78,6 +78,14 @@ Throws an exception if invalid ranges are supplied, negative seeds, or values ex
 
     Returns all primes between $from and $to (inclusive). Uses the cached sieve when possible, falls back to slow primality checks otherwise. Returns an array in list context or a count in scalar context.
 
+- `$obj->range_from;`
+
+    Returns the low value used to calculate the last call to `range()`.
+
+- `$obj->range_to;`
+
+    Returns the high value used to calculate the last call to `range()`.
+
 - `$obj->seed($value)` or `my $current_seed = $obj->seed;`
 
     Get or set the current seed. Setting a new value updates the internal pointer for next/previous. Values are capped to the maximum allowed integer and floored at 0.
